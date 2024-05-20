@@ -6,7 +6,7 @@ This project analyzes the trends in annual immigration levels in the United Stat
 This analysis covers the period from 1820 to 1920, capturing the evolution of immigration trends due to changes in policy and global events. The study aims to model these trends accurately and forecast immigration levels for future years.
 
 ## Data
-The dataset includes the total number of U.S. immigrants annually from 1820 to 1920. The data shows a generally increasing trend with peaks influenced by policy changes and global events such as World War I and the Great Depression.
+The current report utilized immigrant data published by the Department of Homeland Security (DHS). The dataset includes the total number of U.S. immigrants annually from 1820 to 1920. The data shows a generally increasing trend with peaks influenced by policy changes and global events such as World War I and the Great Depression.
 
 ## Exploratory Data Analysis (EDA)
 - **Trend Analysis**: The data exhibits a clear deterministic trend, with immigration numbers peaking in the early 20th century and then declining due to restrictive laws and global conflicts.
