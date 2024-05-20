@@ -1,0 +1,299 @@
+---
+title: "US Immigration Analysis"
+author: "Tsu-Hao Fu"
+output:
+  pdf_document: default
+date: "2024-3-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require(forecast)) install.packages("forecast")
+library(forecast)
+if(!require(tseries)) install.packages("tseries")
+library(tseries)
+```
+## 1. Summary
+This work identifies trends in the annual immigration levels in the United 
+States. As part of the analysis, the study also identifies a model that best 
+fits the immigrant data and forecasts the future number of immigrants entering 
+the U.S. over the next eight years.
+
+The data contains the total number of U.S. immigrants for each year ranging from 
+1820 to 1920. Immigration has been increasing over time. In the early 1800s, it 
+was low, but by the late 1800s, the U.S. had relaxed immigration policies. The 
+number of immigrants peaked at the beginning of the 20th century, then decreased 
+in the early 1900s due to World War I and laws in 1921 and 1924 that limited the
+number of immigrants. Immigration dropped further during the Great Depression 
+and World War II. After World War II, around 1950, it began to rise again.
+
+```{r, warning=FALSE, echo = FALSE}
+# Load the data
+"us.immig" <-
+  structure(c(8385, 9127, 6911, 6354, 7912, 10199, 10837, 18875, 
+              27382, 22520, 23322, 22633, 48386, 58640, 65365, 45374, 76242, 
+              79340, 38914, 68069, 84066, 80289, 104565, 69994, 78615, 114371, 
+              154416, 234968, 226527, 297024, 295984, 379466, 371603, 368645, 
+              427833, 200877, 200436, 251306, 123126, 121282, 153640, 91918, 
+              91985, 176282, 193418, 248120, 318568, 315722, 277680, 352768, 
+              387203, 321350, 404806, 459803, 313339, 227498, 169986, 141857, 
+              138469, 177826, 457257, 669431, 788992, 603322, 518592, 395346, 
+              334203, 490109, 546889, 444427, 455302, 560319, 579663, 439730, 
+              285631, 258536, 343267, 230832, 229299, 311715, 448572, 487918, 
+              648743, 857046, 812870, 1026499, 1100735, 1285349, 782870, 751786, 
+              1041570, 878587, 838172, 1197892, 1218480, 326700, 298826, 295403, 
+              110618, 141132, 430001, 805228, 309556, 522919, 706896, 294314, 
+              304488, 335175, 307255, 279678, 241700, 97139, 35576, 23068, 
+              29470, 34956, 36329, 50244, 67895, 82998, 70756, 51776, 28781, 
+              23725, 28551, 38119, 108721, 147292, 170570, 188317, 249187, 
+              205717, 265520, 170434, 208177, 237790, 321625, 326867, 253265, 
+              260686, 265398, 271344, 283763), .Tsp = c(1820, 1962, 1), 
+            class = "ts")
+
+plot(us.immig, xlab="Year", ylab="Number of Immigrants", 
+     main="Annual Immigration to the U.S. (1820-1962)",
+      col="blue")
+```
+
+The immigration data seem to show there is a trend in the data. The 
+trend seems to be a deterministic trend. In order to forecast future immigration 
+levels, the trend needs to be removed from the series to achieve stationarity. 
+By the Box-Cox transformation, log transformation should be used to stabilize a 
+possible non-constant variance before taking a difference for stationary 
+processes. An approximation of normality will also be improved by the log 
+transformation. The plot of the transformed series shows an approximately 
+increasing trend and strong momentum between observations which suggest 
+non-stationarity. The observed increasing trend recommend taking a difference 
+of the log-transformed data for stationarity. 
+
+```{r, echo=FALSE}
+# Box-Cox Transformation
+cat("Lambda for Box-Cox:",BoxCox.lambda(us.immig))
+us.immig = log(us.immig)
+plot(us.immig, xlab="Year", ylab="Log Transformed Immigration Data", 
+     main="Log Annual Immigration to the U.S. (1820-1962)",
+     col="blue")
+```
+
+Our final ARIMA model:
+$\Delta Z_t = -0.9831 \Delta Z_{t-1} - 0.6232 \Delta Z_{t-2} + 1.2334 a_{t-1} + 
+0.7619 a_{t-2} + 0.1209 a_{t-3} + 0.0495 a_{t-4} - 0.1557 a_{t-5} - 
+0.3493 a_{t-6} + a_t$
+
+Our final ARI model:
+$\Delta Z_t = 0.1833 \Delta Z_{t-1} - 0.1375 \Delta Z_{t-2} + 
+0.2158 \Delta Z_{t-3} - 0.1399 \Delta Z_{t-4} - 0.1915 \Delta Z_{t-5} - 0.0794 
+\Delta Z_{t-6} + 0.1658 \Delta Z_{t-7} + a_t
+$
+
+where \( \Delta Z_t \) is the first-differenced time series at time t and 
+\( a_t \) is the white noise at time t.
+
+
+## 2. Analysis
+## 2.1 Stationarity Testing
+By employing the Augmented Dickey-Fuller test, we observe that after the first 
+difference is taken, the p-value falls below the significance level of 0.05. 
+This suggests that the time series does not have a unit root, thereby indicating 
+its stationarity. From the plot, the log-transformed immigration data also 
+appears to be stationary after the first differencing.
+
+```{r, warning=FALSE, echo=FALSE}
+# Augmented Dickey-Fuller test
+adf.test(us.immig)
+
+# First difference
+cat("Number of differences required to achieve stationarity:",ndiffs(us.immig),
+    "\n")
+diff_series <- diff(us.immig, differences=1)
+
+# Augmented Dickey-Fuller test for the first difference
+adf.test(diff_series)
+
+# Plot the differenced series
+plot(diff_series, main="First Differenced Series", 
+     ylab="Differenced Immigration",
+     col="blue")
+
+```
+
+## 2.2 Model Specification
+The use of Autocorrelation Function (ACF) and Partial Autocorrelation Function 
+(PACF) correlograms helped choose the ARIMA model parameters (p, q) for the data. 
+The observations within the 95% significance bounds generally indicate a white 
+noise process, with an exception of a notable spike at lag 5. This spike could be 
+random or signify an important feature. Therefore, we assume that the optimal p 
+and q are around 5.
+
+
+```{r, echo=FALSE}
+# ACF and PACF plots
+acf(diff_series, main="ACF of Differenced Series")
+pacf(diff_series, main="PACF of Differenced Series")
+```
+
+```{r, echo=FALSE}
+# Grid Search function for the optimal ARIMA model
+grid_search <- function(p_start=0,p_max=7,d = 1,q_start=0,q_max=7){
+  
+  best_aic <- Inf
+  best_order <- c(0, d, 0)
+  best_model <- NULL
+  
+  # Initialize a matrix to store the AIC values
+  aic_matrix <- matrix(NA, nrow = p_max-p_start+1, ncol = q_max-q_start+1, 
+                  dimnames = list(p = c(p_start:p_max), q = c(q_start:q_max)))
+  i = 1
+  for (p in p_start:p_max) {
+    j = 1
+    for (q in q_start:q_max) {
+        # Fit the ARIMA model
+        model <- arima(us.immig, order=c(p, d, q), method="ML")
+        aic_matrix[i, j] <- model$aic
+        
+        # Check if this model has better AIC
+        if (model$aic < best_aic) {
+          best_aic <- model$aic
+          best_order <- c(p, d, q)
+          best_model <- model
+        }
+        j = j+1
+    }
+    i = i+1
+  }
+  # Print the AIC matrix
+  print(aic_matrix)
+  cat("The Order of the Optimal Model:",best_order)
+  return(best_model)
+}
+```
+
+## 2.3 ARIMA 
+In order to select an appropriate ARIMA model that best fits the immigration 
+data, a matrix of AIC values was used. The AIC values from matrix suggested 
+ARIMA models such as ARIMA (2,1,6), ARIMA (3,1,6), and ARIMA (2,1,7). All three 
+models were fit to the log transformed immigration data. The ARMA (2,1,6) model 
+appeared to most adequately fit the immigration data.
+
+The standardized residuals plot for the ARIMA (2,1,6) model indicates the 
+residuals are homoscedastic and center around zero mean. The ACF and PACF 
+correlograms show that the residuals appear to look like white noise. All of 
+the p-values for the Ljung-Box statistic are above 0.05 at lags 1-20,suggesting 
+the residuals do not show significant autocorrelation, and our model has 
+adequately captured the autocorrelations in the data. Even though the normal 
+Q-Q plot depict heavier tails indicating some skewness, overall, the ARIMA 
+(2,1,6) model seem to have taken care of the significant spikes at lag 5.
+
+
+```{r, warning=FALSE, echo=FALSE}
+# ARIMA
+best_ARIMA <- grid_search()
+summary(best_ARIMA)
+residuals_ARIMA <- scale(best_ARIMA$residuals)
+
+# Check if residuals behave like white noise
+plot(residuals_ARIMA, xlab="Year", 
+     main="Standarized ARIMA Residuals",
+     ylab="",
+     col="blue")
+```
+
+```{r, warning=FALSE, echo=FALSE}
+# Q-Q plot
+qqnorm(residuals_ARIMA, main="Normal Q-Q Plot for Std Residuals (ARIMA)")
+qqline(residuals_ARIMA)
+
+# ACF and PACF
+acf(best_ARIMA$residuals, main="ACF of ARIMA Residuals")
+pacf(best_ARIMA$residuals, main="PACF of ARIMA Residuals")
+
+# Ljung-Box test
+p_values <- sapply(1:20, function(lag) {
+  Box.test(best_ARIMA$residuals, lag = lag, type = "Ljung-Box")$p.value
+})
+
+# Plot the p-values for each lag
+plot(1:20, p_values, type="p", lwd = 2, col = "blue", 
+     xlab = "Lag", ylab = "P-Value", main = "Ljung-Box Test P-Values (ARIMA)")
+abline(h = 0.05, col = "red", lty = 2)  # Reference line for p-value = 0.05
+
+
+```
+
+## 2.4 ARI
+We follow the same procedures with ARIMA to find the best fitted model. The AIC 
+values suggested ARI (7,1,0) is the most suitable model for the immigration data.
+
+The standardized residuals plot for the ARI (7,1,0) model shows the residuals
+are homoscedastic and centered around a zero mean, indicating a good fit. The 
+ACF and PACF correlograms suggest the residuals resemble white noise, and all 
+Ljung-Box test p-values are above 0.05, pointing to minimal autocorrelation. 
+Although the normal Q-Q plot reveals some skewness due to heavier tails, it 
+doesn't detract from the model's adequacy. Moreover, the ARI (7,1,0) model's "p"
+is consistent with our initial assumption (p) based on the ACF correlogram for 
+the first-differenced series. However, the ARIMA (2,1,6) is still a better fit 
+to the data.
+
+```{r, warning=FALSE, echo=FALSE}
+# ARI
+best_ARI <- grid_search(q_max=0)
+summary(best_ARI)
+residuals_ARI <- scale(best_ARI$residuals)
+# Check if residuals behave like white noise
+plot(residuals_ARI, xlab="Year", 
+     main="Standarized Residuals (ARI)",
+     col="blue")
+
+# Q-Q plot
+qqnorm(residuals_ARI, main="Normal Q-Q Plot for Std Residuals (ARI)")
+qqline(residuals_ARI)
+
+# ACF and PACF
+acf(best_ARI$residuals, main="ACF of ARI Residuals")
+pacf(best_ARI$residuals, main="PACF of ARI Residuals")
+
+# Ljung-Box test
+p_values <- sapply(1:20, function(lag) {
+  Box.test(best_ARI$residuals, lag = lag, type = "Ljung-Box")$p.value
+})
+
+# Plot the p-values for each lag
+plot(1:20, p_values, type="p", lwd = 2, col = "blue", 
+     xlab = "Lag", ylab = "P-Value", main = "Ljung-Box Test P-Values (ARI)")
+abline(h = 0.05, col = "red", lty = 2)  # Reference line for p-value = 0.05
+
+
+```
+
+## 2.5 Forcasting
+The ARIMA (2,1,6) model was used to predict immigration levels for the years 
+1963 to 1970. The plots also include the 80% and 95% confidence regions. 
+Therefore, the predicted values show that immigration will gradually keep 
+increasing for the next eight years.
+
+```{r, warning=FALSE, echo=FALSE}
+future_forecast <- forecast(best_ARIMA, h=8)
+plot(future_forecast)
+# Invert the log transformation for the forecast and its confidence intervals
+original_scale_forecast <- exp(future_forecast$mean)
+lower_ci <- exp(future_forecast$lower)
+upper_ci <- exp(future_forecast$upper)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+# Plot the original non-transformed time series data
+plot(exp(us.immig), type='l', main='Forecast on Original Scale', 
+     ylab='Number of Immigrants', xlab='Year')
+
+# Overlay the inverted forecast
+lines(1963:1970, original_scale_forecast, col='blue', lwd=2)
+
+# Add the confidence intervals
+matlines(1963:1970, cbind(lower_ci[,1], upper_ci[,1]), col='red', lty=2, lwd=2)
+matlines(1963:1970, cbind(lower_ci[,2], upper_ci[,2]), col='green', lty=2, lwd=2)
+
+# Optionally, add a legend
+legend("topleft", legend=c("Original Data", "Forecast", "80%CI", "95% CI"), 
+       col=c("black", "blue", "red", "green"), lwd=2, lty=c(1, 1, 2, 2))
+
+```
